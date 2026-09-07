@@ -1,0 +1,166 @@
+--- host/lib/usrp/common/ad9361_driver/ad9361_device.cpp.orig	2026-09-06 04:37:37.592749109 +0300
++++ host/lib/usrp/common/ad9361_driver/ad9361_device.cpp	2026-09-07 17:55:25.811561810 +0300
+@@ -82,7 +82,29 @@
+ const double ad9361_device_t::AD9361_MAX_GAIN         = 89.75;
+ const double ad9361_device_t::AD9361_MIN_CLOCK_RATE   = 220e3;
+ const double ad9361_device_t::AD9361_MAX_CLOCK_RATE   = 61.44e6;
+-const double ad9361_device_t::AD9361_CAL_VALID_WINDOW = 100e6;
++#include <cstdlib>
++static double _b220_cal_window() {
++    const char* e = std::getenv("UHD_AD9361_CAL_WINDOW");
++    return (e && std::atof(e) > 0.0) ? std::atof(e) : 100e6;
++}
++static bool _b220_fast_tune() {
++    static const bool v = [](){
++        const char* e = std::getenv("UHD_AD9361_FAST_TUNE");
++        return e && e[0] == '1';
++    }();
++    return v;
++}
++#include <map>
++template <typename IO_T>
++static void _b220_cpoke(IO_T& io, uint32_t addr, uint8_t val) {
++    if (!_b220_fast_tune()) { io->poke8(addr, val); return; }
++    static std::map<uint32_t, int> cache;
++    auto it = cache.find(addr);
++    if (it != cache.end() && it->second == (int)val) return;
++    cache[addr] = (int)val;
++    io->poke8(addr, val);
++}
++const double ad9361_device_t::AD9361_CAL_VALID_WINDOW = _b220_cal_window();
+ // Max bandwdith is due to filter rolloff in analog filter stage
+ const double ad9361_device_t::AD9361_MIN_BW = 200e3;
+ const double ad9361_device_t::AD9361_MAX_BW = 56e6;
+@@ -1164,29 +1186,29 @@
+ 
+     /* ... annnd program! */
+     if (direction == RX) {
+-        _io_iface->poke8(0x23a, 0x40 | vco_output_level);
+-        _io_iface->poke8(0x239, 0xC0 | vco_varactor);
+-        _io_iface->poke8(0x242, vco_bias_ref | (vco_bias_tcf << 3));
+-        _io_iface->poke8(0x238, (vco_cal_offset << 3));
+-        _io_iface->poke8(0x245, 0x00);
+-        _io_iface->poke8(0x251, vco_varactor_ref);
+-        _io_iface->poke8(0x250, 0x70);
+-        _io_iface->poke8(0x23b, 0x80 | charge_pump_curr);
+-        _io_iface->poke8(0x23e, loop_filter_c1 | (loop_filter_c2 << 4));
+-        _io_iface->poke8(0x23f, loop_filter_c3 | (loop_filter_r1 << 4));
+-        _io_iface->poke8(0x240, loop_filter_r3);
++        _b220_cpoke(_io_iface, 0x23a, 0x40 | vco_output_level);
++        _b220_cpoke(_io_iface, 0x239, 0xC0 | vco_varactor);
++        _b220_cpoke(_io_iface, 0x242, vco_bias_ref | (vco_bias_tcf << 3));
++        _b220_cpoke(_io_iface, 0x238, (vco_cal_offset << 3));
++        _b220_cpoke(_io_iface, 0x245, 0x00);
++        _b220_cpoke(_io_iface, 0x251, vco_varactor_ref);
++        _b220_cpoke(_io_iface, 0x250, 0x70);
++        _b220_cpoke(_io_iface, 0x23b, 0x80 | charge_pump_curr);
++        _b220_cpoke(_io_iface, 0x23e, loop_filter_c1 | (loop_filter_c2 << 4));
++        _b220_cpoke(_io_iface, 0x23f, loop_filter_c3 | (loop_filter_r1 << 4));
++        _b220_cpoke(_io_iface, 0x240, loop_filter_r3);
+     } else if (direction == TX) {
+-        _io_iface->poke8(0x27a, 0x40 | vco_output_level);
+-        _io_iface->poke8(0x279, 0xC0 | vco_varactor);
+-        _io_iface->poke8(0x282, vco_bias_ref | (vco_bias_tcf << 3));
+-        _io_iface->poke8(0x278, (vco_cal_offset << 3));
+-        _io_iface->poke8(0x285, 0x00);
+-        _io_iface->poke8(0x291, vco_varactor_ref);
+-        _io_iface->poke8(0x290, 0x70);
+-        _io_iface->poke8(0x27b, 0x80 | charge_pump_curr);
+-        _io_iface->poke8(0x27e, loop_filter_c1 | (loop_filter_c2 << 4));
+-        _io_iface->poke8(0x27f, loop_filter_c3 | (loop_filter_r1 << 4));
+-        _io_iface->poke8(0x280, loop_filter_r3);
++        _b220_cpoke(_io_iface, 0x27a, 0x40 | vco_output_level);
++        _b220_cpoke(_io_iface, 0x279, 0xC0 | vco_varactor);
++        _b220_cpoke(_io_iface, 0x282, vco_bias_ref | (vco_bias_tcf << 3));
++        _b220_cpoke(_io_iface, 0x278, (vco_cal_offset << 3));
++        _b220_cpoke(_io_iface, 0x285, 0x00);
++        _b220_cpoke(_io_iface, 0x291, vco_varactor_ref);
++        _b220_cpoke(_io_iface, 0x290, 0x70);
++        _b220_cpoke(_io_iface, 0x27b, 0x80 | charge_pump_curr);
++        _b220_cpoke(_io_iface, 0x27e, loop_filter_c1 | (loop_filter_c2 << 4));
++        _b220_cpoke(_io_iface, 0x27f, loop_filter_c3 | (loop_filter_r1 << 4));
++        _b220_cpoke(_io_iface, 0x280, loop_filter_r3);
+     } else {
+         throw uhd::runtime_error("[ad9361_device_t] [_setup_synth] INVALID_CODE_PATH");
+     }
+@@ -1338,7 +1360,7 @@
+                 "[ad9361_device_t] [_tune_helper] INVALID_CODE_PATH");
+         }
+ 
+-        _io_iface->poke8(0x004, _regs.inputsel);
++        _b220_cpoke(_io_iface, 0x004, _regs.inputsel);
+ 
+         /* Store vcodiv setting. */
+         _regs.vcodivs = (_regs.vcodivs & 0xF0) | (i & 0x0F);
+@@ -1352,12 +1374,21 @@
+         _io_iface->poke8(0x235, (nfrac >> 16) & 0xFF);
+         _io_iface->poke8(0x232, (nint >> 8) & 0xFF);
+         _io_iface->poke8(0x231, nint & 0xFF);
+-        _io_iface->poke8(0x005, _regs.vcodivs);
++        _b220_cpoke(_io_iface, 0x005, _regs.vcodivs);
+ 
+         /* Lock the PLL! */
+-        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+-        if ((_io_iface->peek8(0x247) & 0x02) == 0) {
+-            throw uhd::runtime_error("[ad9361_device_t] RX PLL NOT LOCKED");
++        if (_b220_fast_tune()) {
++            bool _lk = false;
++            for (int _i = 0; _i < 40; _i++) {
++                if ((_io_iface->peek8(0x247) & 0x02) != 0) { _lk = true; break; }
++                std::this_thread::sleep_for(std::chrono::microseconds(25));
++            }
++            if (!_lk) throw uhd::runtime_error("[ad9361_device_t] RX PLL NOT LOCKED");
++        } else {
++            std::this_thread::sleep_for(std::chrono::milliseconds(2));
++            if ((_io_iface->peek8(0x247) & 0x02) == 0) {
++                throw uhd::runtime_error("[ad9361_device_t] RX PLL NOT LOCKED");
++            }
+         }
+ 
+         _rx_freq = actual_lo;
+@@ -1378,7 +1409,7 @@
+                 "[ad9361_device_t] [_tune_helper] INVALID_CODE_PATH");
+         }
+ 
+-        _io_iface->poke8(0x004, _regs.inputsel);
++        _b220_cpoke(_io_iface, 0x004, _regs.inputsel);
+ 
+         /* Store vcodiv setting. */
+         _regs.vcodivs = (_regs.vcodivs & 0x0F) | ((i & 0x0F) << 4);
+@@ -1392,12 +1423,21 @@
+         _io_iface->poke8(0x275, (nfrac >> 16) & 0xFF);
+         _io_iface->poke8(0x272, (nint >> 8) & 0xFF);
+         _io_iface->poke8(0x271, nint & 0xFF);
+-        _io_iface->poke8(0x005, _regs.vcodivs);
++        _b220_cpoke(_io_iface, 0x005, _regs.vcodivs);
+ 
+         /* Lock the PLL! */
+-        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+-        if ((_io_iface->peek8(0x287) & 0x02) == 0) {
+-            throw uhd::runtime_error("[ad9361_device_t] TX PLL NOT LOCKED");
++        if (_b220_fast_tune()) {
++            bool _lk = false;
++            for (int _i = 0; _i < 40; _i++) {
++                if ((_io_iface->peek8(0x287) & 0x02) != 0) { _lk = true; break; }
++                std::this_thread::sleep_for(std::chrono::microseconds(25));
++            }
++            if (!_lk) throw uhd::runtime_error("[ad9361_device_t] TX PLL NOT LOCKED");
++        } else {
++            std::this_thread::sleep_for(std::chrono::milliseconds(2));
++            if ((_io_iface->peek8(0x287) & 0x02) == 0) {
++                throw uhd::runtime_error("[ad9361_device_t] TX PLL NOT LOCKED");
++            }
+         }
+ 
+         _tx_freq = actual_lo;
+@@ -2152,7 +2192,9 @@
+     }
+ 
+     /* Update the gain settings. */
+-    _reprogram_gains();
++    if (!_b220_fast_tune()) {
++        _reprogram_gains();
++    }
+ 
+     /*
+      * Only run the following calibrations if we are more than 100MHz away

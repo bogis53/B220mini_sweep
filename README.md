@@ -81,7 +81,7 @@ Patch env vars: `UHD_AD9361_CAL_WINDOW` (Hz, use 6e9) and
 `UHD_AD9361_FAST_TUNE=1`. Both default to stock behaviour.
 
 Hardware: LibreSDR B220mini, UHD-detected as B210, USB 3.0, vendor bitstream
-(sources: github.com/bkerler/LibreSDR_UHD_B220_Mini_FPGA). Host i5-1135G7,
+(sources: github.com/bkerler/LibreSDR_UHD_B220_Mini_FPGA). Host: x86-64 laptop,
 Ubuntu 24.04. Should work on a real Ettus B210; untested.
 
 Floor is USB round trips, ~0.082 ms each, ~11 per hop. Below that needs AD9361
